@@ -44,6 +44,13 @@ flattenList lst = case lst of
   hd :: tl -> hd ++ flattenList tl
   [] -> []
 
+insertLikeDict: comparable -> a -> List (comparable, a) -> List (comparable, a)
+insertLikeDict key value lst = case lst of
+  hd :: tl -> if first hd == key then
+    (key, value) :: tl
+    else hd :: insertLikeDict key value tl
+  [] -> [(key, value)]
+
 getElems: Model -> List StyledSVGElement
 getElems model = case model.svg.shape of
   SVG {elems} -> elems

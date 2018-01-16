@@ -3,6 +3,8 @@ module Types exposing (..)
 import Vec2 exposing (Vec2)
 import Set exposing (Set)
 import Dict exposing (Dict)
+import Ui.Button
+import Ui.Chooser
 
 type Mode = HandMode | NodeMode | RectMode | EllipseMode | PolygonMode | PathMode
 type alias StyleInfo = Dict String String
@@ -38,11 +40,14 @@ type alias Model = {
   selectedRef: List StyledSVGElement,
   clientLeft: Float,
   clientTop: Float,
-  encoded: String
+  encoded: String,
+  menus: List (String, Ui.Button.Model),
+  actions: List Ui.Button.Model,
+  fillColorChooser: Ui.Chooser.Model
 }
 
 type Msg = OnProperty ChangePropertyMsg | OnAction Action | OnMouse MouseMsg | OnSelect Int Bool Vec2 | FieldSelect (Int, Vec2) | OnVertex Vec2 Vec2 | OnNode Vec2 Int
-  | SvgData String | EncodedSvgData String | SvgRootRect ClientRect | ComputedStyle (Maybe StyleObject)
+  | SvgData String | EncodedSvgData String | SvgRootRect ClientRect | ComputedStyle (Maybe StyleObject) | FillChooserMsg Ui.Chooser.Msg
 type ChangePropertyMsg = SwichMode Mode | Style StyleInfo
 type MouseMsg = MouseDownLeft Vec2 | MouseDownRight Vec2 | MouseUp Vec2 | MouseMove Vec2
 type Action = Duplicate | Delete | BringForward | SendBackward

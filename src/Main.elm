@@ -5,7 +5,9 @@ import Svg exposing (svg, ellipse, rect)
 import Svg.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onMouseDown)
 import Html.Attributes exposing (value, checked, src, attribute)
-import Vec2 exposing (..)
+import Ui.Button
+import Ui.Chooser
+import Tuple exposing (first, second)
 import Set exposing (Set)
 import Types exposing (..)
 import Debug exposing (..)
@@ -40,7 +42,26 @@ init =
       selectedRef = [],
       clientLeft = 0,
       clientTop = 0,
-      encoded = ""
+      encoded = "",
+      menus = [
+        ("Hand", Ui.Button.model "Hand" "primary" "medium"),
+        ("Node", Ui.Button.model "Node" "primary" "medium"),
+        ("Rect", Ui.Button.model "Rect" "primary" "medium"),
+        ("Ellipse", Ui.Button.model "Ellipse" "primary" "medium"),
+        ("Polygon", Ui.Button.model "Polygon" "primary" "medium"),
+        ("Path", Ui.Button.model "Path" "primary" "medium")
+      ],
+      actions = [
+        Ui.Button.model "Copy" "primary" "small",
+        Ui.Button.model "Delete" "primary" "small",
+        Ui.Button.model "Bring forward" "primary" "small",
+        Ui.Button.model "Send backward" "primary" "small"
+      ],
+      fillColorChooser = Ui.Chooser.init ()
+        |> Ui.Chooser.items [
+          {label = "none", value = "none", id = "0"},
+          {label = "single", value = "single", id = "1"}
+        ]
     } ! [Utils.getSvgData ()]
 
 
@@ -49,35 +70,41 @@ init =
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    OnProperty changePropertyMsg -> case changePropertyMsg of
-      SwichMode HandMode ->
-        {model | mode = HandMode} ! []
-      
-      SwichMode NodeMode ->
-        {model | mode = NodeMode} ! []
+    OnProperty changePropertyMsg ->
+      let
+        btnnames = ["Hand", "Node", "Rect", "Ellipse", "Polygon", "Path"]
+        btnTpls = List.map (\k -> (k, Ui.Button.model k "primary" "medium")) btnnames
+        stressed name = Utils.insertLikeDict name (Ui.Button.model name "success" "medium") btnTpls
+      in
+      case changePropertyMsg of
+        SwichMode HandMode ->
+          {model | mode = HandMode, menus = stressed "Hand"} ! []
+        
+        SwichMode NodeMode ->
+          {model | mode = NodeMode, menus = stressed "Node"} ! []
 
-      SwichMode RectMode ->
-        {model | mode = RectMode} ! [Utils.getBoundingClientRect "root"]
+        SwichMode RectMode ->
+          {model | mode = RectMode, menus = stressed "Rect"} ! [Utils.getBoundingClientRect "root"]
 
-      SwichMode EllipseMode ->
-        {model | mode = EllipseMode} ! [Utils.getBoundingClientRect "root"]
-      
-      SwichMode PolygonMode ->
-        {model | mode = PolygonMode} ! [Utils.getBoundingClientRect "root"]
-      
-      SwichMode PathMode ->
-        {model | mode = PathMode} ! [Utils.getBoundingClientRect "root"]        
+        SwichMode EllipseMode ->
+          {model | mode = EllipseMode, menus = stressed "Ellipse"} ! [Utils.getBoundingClientRect "root"]
+        
+        SwichMode PolygonMode ->
+          {model | mode = PolygonMode, menus = stressed "Polygon"} ! [Utils.getBoundingClientRect "root"]
+        
+        SwichMode PathMode ->
+          {model | mode = PathMode, menus = stressed "Path"} ! [Utils.getBoundingClientRect "root"]        
 
-      Style styleInfo -> case model.mode of
-        HandMode ->
-          let newModel = HandMode.changeStyle styleInfo model in
-          if model /= newModel then newModel ! [Utils.reflectSvgData newModel]
-          else model ! []
-        NodeMode ->
-          let newModel = HandMode.changeStyle styleInfo model in
-          if model /= newModel then newModel ! [Utils.reflectSvgData newModel]
-          else model ! []
-        _ -> {model| styleInfo = styleInfo} ! []
+        Style styleInfo -> case model.mode of
+          HandMode ->
+            let newModel = HandMode.changeStyle styleInfo model in
+            if model /= newModel then newModel ! [Utils.reflectSvgData newModel]
+            else model ! []
+          NodeMode ->
+            let newModel = HandMode.changeStyle styleInfo model in
+            if model /= newModel then newModel ! [Utils.reflectSvgData newModel]
+            else model ! []
+          _ -> {model| styleInfo = styleInfo} ! []
     
     OnAction action -> case action of
       Duplicate ->
@@ -178,7 +205,11 @@ update msg model =
           Nothing -> model.styleInfo
       in
       {model| styleInfo = newStyleInfo} ! []
-
+    FillChooserMsg msg_ ->
+      let
+        ( updatedChooser, cmd ) = Ui.Chooser.update msg_ model.fillColorChooser
+      in
+      {model| fillColorChooser = updatedChooser} ! [Cmd.map FillChooserMsg cmd]
 
 -- VIEW
 
@@ -188,24 +219,24 @@ view model =
   let styleInfo = model.styleInfo in
   div []
     [ div [] [
-        let
-          isSelected mode =
-            if mode == model.mode then [attribute "selected" "true"] else []
-        in
-        p [] [
-          button ([ Utils.onPush <| OnProperty <| SwichMode HandMode ] ++ isSelected HandMode) [text "hand mode"],
-          button ([ Utils.onPush <| OnProperty <| SwichMode NodeMode ] ++ isSelected NodeMode) [text "node mode"],        
-          button ([ Utils.onPush <| OnProperty <| SwichMode RectMode ] ++ isSelected RectMode) [text "rectangle mode"],
-          button ([ Utils.onPush <| OnProperty <| SwichMode EllipseMode ] ++ isSelected EllipseMode) [text "ellispe mode"],
-          button ([ Utils.onPush <| OnProperty <| SwichMode PolygonMode ] ++ isSelected PolygonMode) [text "polygon mode"],
-          button ([ Utils.onPush <| OnProperty <| SwichMode PathMode ] ++ isSelected PathMode) [text "path mode"]          
-        ],
-        p [] [
-          button [ Utils.onPush <| OnAction <| Duplicate ] [text "duplicate"],
-          button [ Utils.onPush <| OnAction <| Delete ] [text "delete"],
-          button [ Utils.onPush <| OnAction <| BringForward ][text "bring forward"],
-          button [ Utils.onPush <| OnAction <| SendBackward ][text "send backward"]
-        ]
+        div [] (
+          List.map2 Ui.Button.view [
+            OnProperty <| SwichMode HandMode,
+            OnProperty <| SwichMode NodeMode,
+            OnProperty <| SwichMode RectMode,
+            OnProperty <| SwichMode EllipseMode,
+            OnProperty <| SwichMode PolygonMode,
+            OnProperty <| SwichMode PathMode
+          ] (List.map second model.menus)
+        ),
+        div [] (
+          List.map2 Ui.Button.view [
+            OnAction <| Duplicate,
+            OnAction <| Delete,
+            OnAction <| BringForward,
+            OnAction <| SendBackward
+          ] model.actions
+        )
       ],
       div [
         id "root",
@@ -231,39 +262,10 @@ view model =
           _ -> []
         ))
       ],
-      let
-        fo = case Dict.get "fill-opacity" model.styleInfo of
-          Nothing -> 1
-          Just x -> Result.withDefault 1 <| String.toFloat x
-      in
-      p [] ([
-        text "fill:"
-      ] ++ ViewBuilder.colorPicker "fill" model ++ [
-        text <| "opacity:",
-        button [ onClick <| OnProperty <| Style (Dict.insert "fill-opacity" (toString <| Utils.limit 0 1 (fo + 0.125)) styleInfo)] [text "+"],
-        button [ onClick <| OnProperty <| Style (Dict.insert "fill-opacity" (toString <| Utils.limit 0 1 (fo - 0.125)) styleInfo)] [text "-"],
-        text <| toString fo ++ " "
-      ]),
-      let
-        so = case Dict.get "stroke-opacity" model.styleInfo of
-          Nothing -> 1
-          Just x -> Result.withDefault 1 <| String.toFloat x
-        sw = case Dict.get "stroke-width" model.styleInfo of
-          Nothing -> 1
-          Just x -> Result.withDefault 1 <| String.toInt x
-      in
-      p [] ([
-        text " stroke:"
-    ] ++ ViewBuilder.colorPicker "stroke" model ++ [
-        text <| "opacity:",
-        button [ onClick <| OnProperty <| Style (Dict.insert "stroke-opacity" (toString <| Utils.limit 0 1 (so + 0.125)) styleInfo)] [text "+"],
-        button [ onClick <| OnProperty <| Style (Dict.insert "stroke-opacity" (toString <| Utils.limit 0 1 (so - 0.125)) styleInfo)] [text "-"],
-        text <| toString so ++ " ",
-        text <| "width:",
-        button [ onClick <| OnProperty <| Style (Dict.insert "stroke-width" (toString <| Utils.lowerLimit 1 (sw + 1)) styleInfo)] [text "+"],
-        button [ onClick <| OnProperty <| Style (Dict.insert "stroke-width" (toString <| Utils.lowerLimit 1 (sw - 1)) styleInfo)] [text "-"],
-        text <| toString sw ++ " "
-      ])
+      div [] [
+        text "fill:",
+        Html.map FillChooserMsg <| Ui.Chooser.view model.fillColorChooser
+      ]
     ]
 
 
